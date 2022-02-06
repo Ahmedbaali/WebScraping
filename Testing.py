@@ -1,33 +1,55 @@
+from ast import While
 from bs4 import BeautifulSoup
 import requests
+import pandas as pd
 
 #url = 'https://automatetheboringstuff.com/'
-url = 'https://boston.craigslist.org/search/sof'
+#url = 'https://boston.craigslist.org/search/sof'
+url = 'https://www.programmableweb.com/category/all/apis'
 
-response = requests.get(url)
+
 
 #print(response,'     ',type(response))
 
-data = response.text
+
 
 #print(data)
 
-soup = BeautifulSoup(data, 'html.parser')
 
-tags = soup.find_all('h1')
 
-for tag in tags:
-    print(tag.text)
+d_api = {}
+n_api = 0
+while True:
+    response = requests.get(url)
+    data = response.text
+    soup = BeautifulSoup(data, 'html.parser')
+    apis = soup.find_all('tr')
 
-jobs = soup.find_all('div',{'class':'result-info'})
+    apis.pop(0)
+    for api in apis:
+        Name = api.find('a',).text
+        #print(Name)   
+        Link = api.find('td',{'class':'views-field views-field-pw-version-title'}).find('a').get('href')
+        Link = 'https://www.programmableweb.com' + Link
+        #print(Link)
+        Category = api.find('td',{'class':'views-field views-field-field-article-primary-category'}).text
+    # print(Category.text)
+        api_response = requests.get(Link)
+        api_data = api_response.text
+        api_soup = BeautifulSoup(api_data, 'html.parser')
+        api_description_tag = api_soup.find('div',{'class':'api_description tabs-header_description'})
+        api_description = api_description_tag.text if api_description_tag else "N/A"
 
-for job in jobs:
-    title = job.find('a',{'class':'result-title'}).text
-    location_tag = job.find('span',{'class':'result-hood'})
-    location = location_tag.text[2:-1] if location_tag else "N/A"
-    date_tag = job.find('time',{'class':'result-date'})
-    date = date_tag.text if date_tag else "None"
-    link_tag = job.find('a',{'class':'result-title'})
-    link = link_tag.get('href') if link_tag else "None"
+        n_api+=1
+        d_api[n_api] = [Name, Link, Category, api_description]
 
-    print('job title: ', title, '\nlocation: ', location, '\ndate: ', date, '\nlink: ', link, '\n----')
+    url_tag = soup.find('a',{'title':'Go to next page'})
+    if url_tag.get('href'):
+        url= 'https://www.programmableweb.com' + url_tag.get('href')
+    else:
+        break
+
+print('Total APIs: ',n_api)
+api_df = pd.DataFrame.from_dict(d_api, orient='index', columns=['api Name','api (absolute) URL','api Category','api Description'])
+
+api_df.to_csv('apis.csv')
